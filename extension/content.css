@@ -1,0 +1,17 @@
+/* Prevent any site CSS from breaking our injected elements */
+.slop-badge,
+.slop-overlay,
+.slop-backdrop,
+.slop-overlay-inner,
+.slop-header,
+.slop-body,
+.slop-panel,
+.slop-footer {
+  box-sizing: border-box !important;
+  -webkit-box-sizing: border-box !important;
+}
+
+.slop-overlay * {
+  box-sizing: border-box !important;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+}
