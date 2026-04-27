@@ -119,7 +119,7 @@ export default function LandingPage() {
                   cursor: 'pointer',
                   boxShadow: '0 8px 30px rgba(251,84,43,0.4)',
                 }}
-              >Install on Brave 🦁</motion.button>
+              >Install on Brave</motion.button>
             </a>
           </div>
         </motion.div>
