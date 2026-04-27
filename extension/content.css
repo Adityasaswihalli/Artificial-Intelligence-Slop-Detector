@@ -1,17 +1,8 @@
-/* Prevent any site CSS from breaking our injected elements */
+/* Safety reset — prevent site styles breaking our UI */
 .slop-badge,
-.slop-overlay,
 .slop-backdrop,
-.slop-overlay-inner,
-.slop-header,
-.slop-body,
-.slop-panel,
-.slop-footer {
+.slop-panel-root,
+.slop-panel-inner {
+  all: initial;
   box-sizing: border-box !important;
-  -webkit-box-sizing: border-box !important;
-}
-
-.slop-overlay * {
-  box-sizing: border-box !important;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
 }

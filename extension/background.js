@@ -1,420 +1,291 @@
-// ============================================
-// AI SLOP DETECTOR - Background Service Worker
-// ============================================
+// ============================================================
+// AI SLOP DETECTOR — Background Service Worker v2.0
+// Works on ALL pages including ChatGPT
+// ============================================================
 
 const API_BASE = 'http://localhost:5000/api';
 
-// ---- State ----
-let authToken = null;
+let authToken      = null;
 let extensionToken = null;
-let isEnabled = true;
-let userSettings = {
-  autoScan: true,
-  showOverlay: true,
-  minScoreAlert: 70,
-  platforms: {
-    linkedin: true,
-    twitter: true,
-    facebook: true,
-    reddit: true,
-  }
+let isEnabled      = true;
+let userSettings   = {
+  autoScan:      true,
+  showOverlay:   true,
+  minScoreAlert: 60,
+  scanAllSites:  true,
 };
 
-// ============================================
-// INIT — Load stored data on startup
-// ============================================
+// ── Init ─────────────────────────────────────────────────────
 async function init() {
-  try {
-    const data = await chrome.storage.local.get([
-      'authToken',
-      'extensionToken',
-      'isEnabled',
-      'settings',
-      'user'
-    ]);
-
-    authToken       = data.authToken       || null;
-    extensionToken  = data.extensionToken  || null;
-    isEnabled       = data.isEnabled !== false; // default true
-    userSettings    = { ...userSettings, ...(data.settings || {}) };
-
-    console.log('[SlopDetector] Background initialized', {
-      hasAuth: !!authToken,
-      isEnabled
-    });
-  } catch (err) {
-    console.error('[SlopDetector] Init error:', err);
-  }
+  const data = await chrome.storage.local.get([
+    'authToken','extensionToken','isEnabled','settings','scanCount'
+  ]);
+  authToken      = data.authToken      || null;
+  extensionToken = data.extensionToken || null;
+  isEnabled      = data.isEnabled !== false;
+  if (data.settings) userSettings = { ...userSettings, ...data.settings };
+  console.log('[BG] Init complete. enabled=', isEnabled);
 }
-
 init();
 
-// ============================================
-// MESSAGE HANDLER
-// ============================================
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Must return true for async response
-  handleMessage(message, sender)
-    .then(sendResponse)
-    .catch(err => {
-      console.error('[SlopDetector] Message error:', err);
-      sendResponse({ success: false, error: err.message });
-    });
-  return true;
+// ── Message Router ────────────────────────────────────────────
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  handleMsg(msg, sender).then(sendResponse).catch(e => {
+    console.error('[BG] Error:', e);
+    sendResponse({ success: false, error: e.message });
+  });
+  return true; // async
 });
 
-async function handleMessage(message, sender) {
-  switch (message.type) {
+async function handleMsg(msg, sender) {
+  switch (msg.type) {
 
-    // ---- Analyze content from content script ----
-    case 'ANALYZE_CONTENT': {
-      if (!isEnabled) {
-        return { success: false, error: 'Extension is disabled' };
-      }
-
-      try {
-        const result = await analyzeContent(
-          message.content,
-          message.platform,
-          message.url
-        );
-        return { success: true, data: result };
-      } catch (err) {
-        console.error('[SlopDetector] Analysis failed:', err);
-        return { success: false, error: err.message };
-      }
+    case 'ANALYZE_TEXT': {
+      if (!isEnabled) return { success: false, error: 'DISABLED' };
+      const result = await runAnalysis(msg.text, msg.url);
+      const s = await chrome.storage.local.get(['scanCount']);
+      const newCount = (s.scanCount || 0) + 1;
+      await chrome.storage.local.set({ scanCount: newCount });
+      chrome.runtime.sendMessage({ type: 'SCAN_COUNT_UPDATE', count: newCount }).catch(() => {});
+      return { success: true, result };
     }
 
-    // ---- Get auth status ----
-    case 'GET_AUTH_STATUS': {
+    case 'FORCE_SCAN_TAB': {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) return { success: false, error: 'No active tab' };
+      await chrome.tabs.sendMessage(tab.id, { type: 'FORCE_SCAN' });
+      return { success: true };
+    }
+
+    case 'GET_STATE': {
+      const stored = await chrome.storage.local.get(['scanCount','user']);
       return {
-        isAuthenticated: !!(authToken || extensionToken),
         isEnabled,
-        extensionToken,
-        settings: userSettings
+        isAuthenticated: !!(authToken || extensionToken),
+        scanCount: stored.scanCount || 0,
+        user:      stored.user || null,
+        settings:  userSettings,
       };
     }
 
-    // ---- Set auth data (called from popup after login) ----
-    case 'SET_AUTH': {
-      authToken      = message.authToken;
-      extensionToken = message.extensionToken;
-
-      await chrome.storage.local.set({
-        authToken:      message.authToken,
-        extensionToken: message.extensionToken,
-        user:           message.user
-      });
-
-      // Tell all tabs the extension is now active
-      broadcastToAllTabs({ type: 'EXTENSION_TOGGLED', isEnabled: true });
-
-      return { success: true };
-    }
-
-    // ---- Toggle extension on/off ----
-    case 'TOGGLE_EXTENSION': {
-      isEnabled = !isEnabled;
+    case 'SET_ENABLED': {
+      isEnabled = msg.value;
       await chrome.storage.local.set({ isEnabled });
-      broadcastToAllTabs({ type: 'EXTENSION_TOGGLED', isEnabled });
+      const tabs = await chrome.tabs.query({});
+      for (const t of tabs) {
+        chrome.tabs.sendMessage(t.id, { type: 'SET_ENABLED', value: isEnabled }).catch(() => {});
+      }
       return { success: true, isEnabled };
     }
 
-    // ---- Update settings ----
-    case 'UPDATE_SETTINGS': {
-      userSettings = { ...userSettings, ...message.settings };
-      await chrome.storage.local.set({ settings: userSettings });
-      broadcastToAllTabs({ type: 'SETTINGS_UPDATED', settings: userSettings });
+    case 'SET_AUTH': {
+      authToken      = msg.authToken;
+      extensionToken = msg.extensionToken;
+      await chrome.storage.local.set({
+        authToken:      msg.authToken,
+        extensionToken: msg.extensionToken,
+        user:           msg.user,
+      });
       return { success: true };
     }
 
-    // ---- Get settings ----
-    case 'GET_SETTINGS': {
-      return { success: true, settings: userSettings };
-    }
-
-    // ---- Open dashboard ----
-    case 'OPEN_DASHBOARD': {
-      await chrome.tabs.create({ url: 'http://localhost:3000/dashboard' });
-      return { success: true };
-    }
-
-    // ---- Logout ----
     case 'LOGOUT': {
-      authToken      = null;
-      extensionToken = null;
+      authToken = null; extensionToken = null;
       await chrome.storage.local.clear();
-      broadcastToAllTabs({ type: 'EXTENSION_TOGGLED', isEnabled: false });
+      return { success: true };
+    }
+
+    case 'UPDATE_SETTINGS': {
+      userSettings = { ...userSettings, ...msg.settings };
+      await chrome.storage.local.set({ settings: userSettings });
+      return { success: true };
+    }
+
+    case 'OPEN_URL': {
+      await chrome.tabs.create({ url: msg.url });
       return { success: true };
     }
 
     default:
-      return { success: false, error: 'Unknown message type' };
+      return { success: false, error: 'Unknown: ' + msg.type };
   }
 }
 
-// ============================================
-// CORE ANALYSIS FUNCTION
-// ============================================
-async function analyzeContent(content, platform, url) {
-  // Build headers
-  const headers = { 'Content-Type': 'application/json' };
-  
-  // If not authenticated, use local analysis immediately
-  if (!authToken && !extensionToken) {
-    console.log('[SlopDetector] No auth tokens, using local analysis');
-    return localAnalyze(content, platform);
+// ── Core Analysis Engine ──────────────────────────────────────
+async function runAnalysis(text, url) {
+  if (!text || text.trim().length < 30) {
+    throw new Error('Text too short');
   }
 
-  if (authToken)      headers['Authorization']    = `Bearer ${authToken}`;
-  if (extensionToken) headers['X-Extension-Token'] = extensionToken;
+  if (authToken || extensionToken) {
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken)      headers['Authorization']     = `Bearer ${authToken}`;
+      if (extensionToken) headers['X-Extension-Token'] = extensionToken;
 
-  let response;
-  try {
-    response = await fetch(`${API_BASE}/analyze`, {
-      method:  'POST',
-      headers,
-      body: JSON.stringify({ content, platform, url }),
-    });
-  } catch (networkErr) {
-    // Backend unreachable — use local analysis
-    console.warn('[SlopDetector] Backend unreachable, using local analysis');
-    return localAnalyze(content, platform);
-  }
+      const resp = await fetch(`${API_BASE}/analyze`, {
+        method:  'POST',
+        headers,
+        body: JSON.stringify({ content: text.substring(0, 3000), url }),
+        signal: AbortSignal.timeout(8000),
+      });
 
-  // Handle 401 — try refresh once
-  if (response.status === 401) {
-    const refreshed = await tryRefreshToken();
-    if (refreshed) {
-      return analyzeContent(content, platform, url); // retry
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success) return { ...data, source: 'backend' };
+      }
+    } catch (e) {
+      console.warn('[BG] Backend unavailable, using local engine:', e.message);
     }
-    throw new Error('NOT_AUTHENTICATED');
   }
 
-  if (!response.ok) {
-    throw new Error(`API error ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  // Show notification for high slop
-  if (data.scores?.overall >= userSettings.minScoreAlert) {
-    showNotification(data.scores.overall, platform);
-  }
-
-  // Increment scan count
-  const stored = await chrome.storage.local.get(['scanCount']);
-  await chrome.storage.local.set({ scanCount: (stored.scanCount || 0) + 1 });
-
-  return data;
+  return localEngine(text);
 }
 
-// ============================================
-// LOCAL FALLBACK ANALYSIS (no backend needed)
-// ============================================
-function localAnalyze(text, platform) {
-  const lower = text.toLowerCase();
-  const words = text.split(/\s+/);
+// ── LOCAL ANALYSIS ENGINE ─────────────────────────────────────
+function localEngine(text) {
+  const t = text.trim();
+  const lower = t.toLowerCase();
 
-  // Hollow buzzword dictionary
+  const words = t.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+
+  // ===== 1. STRONG BUZZWORD DETECTION =====
   const buzzwords = [
-    'synergy','leverage','paradigm','disruptive','innovative','scalable',
-    'ecosystem','holistic','thought leader','game.changer','cutting.edge',
-    'deep dive','move the needle','value proposition','transformative',
-    'burgeoning','delve','testament','commitment to','catalyze','empower',
-    'unprecedented','revolutionary','ideate','pivot','bandwidth',
-    'circle back','low.hanging fruit','boil the ocean','best practices',
-    'core competencies','strategic alignment','unlock potential',
-    'drive engagement','foster','at the end of the day','it.s a',
-    'in the tapestry','digital paradigm','ai.driven','going forward',
-    'touch base','streamline','robust','key takeaway','actionable insights',
-    'in conclusion','in summary','it is important to note','as an ai',
-    'certainly','absolutely','of course','i hope this','happy to help',
+    'synergy','leverage','paradigm','disruptive','innovation',
+    'scalable','ecosystem','holistic','transformative',
+    'strategic alignment','next-gen','future-proof',
+    'hyper-personalized','cloud-native','unlock potential',
+    'drive engagement','stakeholders','resilience',
+    'optimization','framework','architecture',
+    'seamless','convergence','vertical expansion',
+    'cognitive automation','immersive analytics',
+    'exponential growth','cross-functional',
+    'always-on','impact','value creation'
   ];
 
-  let buzzCount = 0;
+  let buzzScore = 0;
+  let buzzHits = 0;
+
   buzzwords.forEach(b => {
-    const re = new RegExp(b.replace('.', '\\s?'), 'gi');
-    if (re.test(lower)) buzzCount++;
+    if (lower.includes(b)) {
+      buzzHits++;
+      buzzScore += 8; // stronger penalty per buzzword
+    }
   });
 
-  // Emoji count
-  const emojiCount = (text.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
+  buzzScore = Math.min(100, buzzScore);
 
-  // List structure
-  const bulletCount   = (text.match(/^[\s]*[•\-\*]\s/gm) || []).length;
-  const numberedCount = (text.match(/^[\s]*\d+[\.\)]\s/gm) || []).length;
-
-  // Sentence variety
-  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 3);
-  const avgLen = words.length / Math.max(sentences.length, 1);
-
-  // Manipulative openers
-  const manipPhrases = [
-    /you won.t believe/i, /this changed everything/i,
-    /here.s the thing/i, /the truth is/i, /hot take/i,
-    /unpopular opinion/i, /let me be honest/i,
-    /\d+\s+things\s+/i, /the secret to/i,
+  // ===== 2. ABSTRACT NOUN STACKING =====
+  const abstractWords = [
+    'alignment','transformation','innovation','optimization',
+    'integration','orchestration','collaboration',
+    'engagement','visibility','strategy','architecture',
+    'capability','infrastructure','ecosystem','impact'
   ];
-  let manipCount = 0;
-  manipPhrases.forEach(re => { if (re.test(text)) manipCount++; });
 
-  // AI signature phrases
-  const aiPhrases = [
-    /in conclusion/i, /in summary/i, /to summarize/i,
-    /it is (important|worth|crucial) to/i, /furthermore/i,
-    /moreover/i, /in addition to/i, /it should be noted/i,
-    /plays? a (crucial|vital|key|important) role/i,
-    /in (today.s|the modern) (digital|world|era)/i,
-    /with (the advent|the rise|widespread adoption)/i,
+  let abstractCount = 0;
+  abstractWords.forEach(w => {
+    const regex = new RegExp('\\b' + w + '\\b','gi');
+    const matches = t.match(regex);
+    if (matches) abstractCount += matches.length;
+  });
+
+  let abstractScore = Math.min(100, abstractCount * 6);
+
+  // ===== 3. LACK OF SPECIFICITY =====
+  const hasNumbers = /\d/.test(t);
+  const hasExamples = /(for example|e\.g\.|such as|case study|we did|i did|last year)/i.test(t);
+  const hasConcreteNouns = /(company|team|project|client|research|data|experiment|result)/i.test(t);
+
+  let specificityPenalty = 0;
+  if (!hasNumbers) specificityPenalty += 15;
+  if (!hasExamples) specificityPenalty += 15;
+  if (!hasConcreteNouns) specificityPenalty += 15;
+
+  // ===== 4. AI-LIKE RHETORICAL PATTERNS =====
+  const aiPatterns = [
+    /in a rapidly evolving/i,
+    /through strategic/i,
+    /the intersection of/i,
+    /by harnessing/i,
+    /our approach/i,
+    /empowering stakeholders/i,
+    /unlock exponential/i
   ];
-  let aiCount = 0;
-  aiPhrases.forEach(re => { if (re.test(text)) aiCount++; });
 
-  // --- Score computation ---
-  const hollowVocab      = Math.min(100, Math.round((buzzCount / Math.max(words.length / 30, 1)) * 100));
-  const repetitiveStruct = Math.min(100, Math.round((emojiCount * 4) + (bulletCount * 5) + (numberedCount * 6)));
-  const sentimentManip   = Math.min(100, manipCount * 18);
-  const aiSignature      = Math.min(100, aiCount * 15);
+  let aiScore = 0;
+  aiPatterns.forEach(r => {
+    if (r.test(t)) aiScore += 15;
+  });
 
-  // Weighted overall
+  aiScore = Math.min(100, aiScore);
+
+  // ===== 5. REPETITIVE CORPORATE TONE =====
+  let corporateTone = 0;
+  if (buzzHits >= 3) corporateTone += 25;
+  if (abstractCount >= 4) corporateTone += 25;
+
+  corporateTone = Math.min(100, corporateTone);
+
+  // ===== FINAL COMBINATION =====
   const overall = Math.min(100, Math.round(
-    (hollowVocab * 0.30) +
-    (repetitiveStruct * 0.20) +
-    (sentimentManip * 0.20) +
-    (aiSignature * 0.30)
+    buzzScore * 0.30 +
+    abstractScore * 0.20 +
+    specificityPenalty * 0.25 +
+    aiScore * 0.15 +
+    corporateTone * 0.10
   ));
 
   const originality = Math.max(0, 100 - overall);
 
   const classification =
     overall >= 80 ? 'critical' :
-    overall >= 60 ? 'high'     :
-    overall >= 40 ? 'medium'   :
-    overall >= 20 ? 'low'      : 'clean';
-
-  // Build flags
-  const flags = [];
-  if (hollowVocab > 40) flags.push({
-    type: 'Hollow Vocabulary',
-    severity: hollowVocab > 70 ? 'high' : 'medium',
-    description: `Detected ${buzzCount} hollow buzzword(s)`
-  });
-  if (repetitiveStruct > 30) flags.push({
-    type: 'Repetitive Structure',
-    severity: repetitiveStruct > 60 ? 'high' : 'medium',
-    description: 'Excessive list formatting or emoji usage'
-  });
-  if (sentimentManip > 20) flags.push({
-    type: 'Sentiment Manipulation',
-    severity: sentimentManip > 50 ? 'high' : 'medium',
-    description: 'Clickbait or manipulative framing detected'
-  });
-  if (aiSignature > 20) flags.push({
-    type: 'AI Writing Patterns',
-    severity: aiSignature > 50 ? 'high' : 'medium',
-    description: 'Common AI writing signatures detected'
-  });
+    overall >= 60 ? 'high' :
+    overall >= 40 ? 'medium' :
+    overall >= 20 ? 'low' :
+    'clean';
 
   return {
     success: true,
+    source: 'local-v2',
     scores: {
       overall,
-      repetitiveStructure: repetitiveStruct,
-      hollowVocabulary:    hollowVocab,
-      lackOfEvidence:      Math.min(100, aiSignature + 10),
-      sentimentManipulation: sentimentManip,
-      originality,
+      hollowVocabulary: buzzScore,
+      repetitiveStructure: corporateTone,
+      lackOfEvidence: specificityPenalty,
+      sentimentManipulation: aiScore,
+      originality
     },
     classification,
-    flags,
+    flags: [
+      ...(buzzHits > 2 ? [{
+        type: 'Buzzword Overload',
+        severity: 'high',
+        description: `${buzzHits} corporate buzzwords detected`
+      }] : []),
+      ...(abstractCount > 3 ? [{
+        type: 'Abstract Noun Stacking',
+        severity: 'high',
+        description: `${abstractCount} abstract nouns detected`
+      }] : []),
+      ...(specificityPenalty >= 30 ? [{
+        type: 'Lack of Specific Evidence',
+        severity: 'high',
+        description: 'No numbers, examples, or concrete references'
+      }] : [])
+    ],
     aiResponse: {
-      summary: overall > 60
-        ? `This content shows strong indicators of AI generation (${overall}% slop score). Multiple AI writing patterns detected.`
-        : overall > 30
-        ? `This content shows some AI-like patterns (${overall}% slop score) but may be human-written.`
-        : `This content appears mostly authentic (${overall}% slop score).`,
-      details: `Local analysis detected ${buzzCount} buzzwords, ${aiCount} AI signature phrases, ${emojiCount} emojis.`,
-      suggestions: [
-        'Add specific personal examples or data',
-        'Use varied sentence structures',
-        'Include unique perspectives or insights',
-      ]
-    },
-    processingTime: 0,
-    cached: false,
-    localAnalysis: true,
+      summary: overall >= 60
+        ? `High AI-slop probability (${overall}%). Text relies heavily on abstract buzzwords and lacks specificity.`
+        : `Low slop probability (${overall}%).`
+    }
   };
 }
 
-// ============================================
-// REFRESH TOKEN
-// ============================================
-async function tryRefreshToken() {
-  const stored = await chrome.storage.local.get(['refreshToken']);
-  if (!stored.refreshToken) return false;
-
-  try {
-    const resp = await fetch(`${API_BASE}/auth/refresh`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ refreshToken: stored.refreshToken }),
-    });
-
-    if (!resp.ok) return false;
-
-    const data = await resp.json();
-    authToken = data.accessToken;
-    await chrome.storage.local.set({
-      authToken:    data.accessToken,
-      refreshToken: data.refreshToken,
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// ============================================
-// NOTIFICATION
-// ============================================
-function showNotification(score, platform) {
-  chrome.notifications.create({
-    type:     'basic',
-    iconUrl:  'icons/icon48.png',
-    title:    '⚠️ High Slop Detected!',
-    message:  `${score}% slop score on ${platform || 'this page'}`,
-    priority: 2,
-  });
-}
-
-// ============================================
-// BROADCAST TO ALL TABS
-// ============================================
-async function broadcastToAllTabs(message) {
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (tab.id) {
-      chrome.tabs.sendMessage(tab.id, message).catch(() => {});
-    }
-  }
-}
-
-// ============================================
-// STORAGE CHANGE LISTENER
-// ============================================
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.isEnabled)       isEnabled       = changes.isEnabled.newValue;
-  if (changes.authToken)       authToken       = changes.authToken.newValue;
-  if (changes.extensionToken)  extensionToken  = changes.extensionToken.newValue;
-  if (changes.settings)        userSettings    = { ...userSettings, ...changes.settings.newValue };
-});
-
-// ============================================
-// TAB UPDATE LISTENER — re-inject on navigation
-// ============================================
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status === 'complete' && isEnabled) {
-    chrome.tabs.sendMessage(tabId, { type: 'TAB_UPDATED' }).catch(() => {});
-  }
+// ── Storage sync ──────────────────────────────────────────────
+chrome.storage.onChanged.addListener(changes => {
+  if (changes.isEnabled)      isEnabled      = changes.isEnabled.newValue;
+  if (changes.authToken)      authToken      = changes.authToken.newValue;
+  if (changes.extensionToken) extensionToken = changes.extensionToken.newValue;
 });
