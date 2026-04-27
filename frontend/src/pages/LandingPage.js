@@ -1,7 +1,8 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar';
+import { Zap, Brain, Globe, LayoutDashboard, ShieldCheck, Target, Shield } from 'lucide-react';
 
 const GaugeSVG = ({ score = 75, size = 200 }) => {
   const color = score > 80 ? '#ef4444' : score > 60 ? '#f97316' : score > 40 ? '#f59e0b' : '#10b981';
@@ -267,12 +268,12 @@ export default function LandingPage() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
           {[
-            { icon: '?', title: 'Real-Time Detection', desc: 'Posts are analyzed as you scroll. No manual action needed. Instant badges show slop scores.', color: '#f59e0b' },
-            { icon: '?', title: 'GPT-4 Powered', desc: 'Advanced AI analysis detects hollow vocabulary, repetitive structures, and manipulation tactics.', color: '#8b5cf6' },
-            { icon: '?', title: 'Multi-Platform', desc: 'Works on LinkedIn, Twitter/X, Facebook, and Reddit. One extension, full coverage.', color: '#3b82f6' },
-            { icon: '?', title: 'Full Dashboard', desc: 'Detailed analytics, historical data, platform breakdowns, and trends over time.', color: '#10b981' },
-            { icon: '?', title: 'Privacy First', desc: 'Content is analyzed securely. We never store your browsing history or personal data.', color: '#ef4444' },
-            { icon: '?', title: 'Precision Scoring', desc: '5-dimensional scoring: structure, vocabulary, evidence, manipulation, and originality.', color: '#f97316' },
+            { icon: <Zap size={32} color="#f59e0b" />, title: 'Real-Time Detection', desc: 'Posts are analyzed as you scroll. No manual action needed. Instant badges show slop scores.', color: '#f59e0b' },
+            { icon: <Brain size={32} color="#8b5cf6" />, title: 'GPT-4 Powered', desc: 'Advanced AI analysis detects hollow vocabulary, repetitive structures, and manipulation tactics.', color: '#8b5cf6' },
+            { icon: <Globe size={32} color="#3b82f6" />, title: 'Multi-Platform', desc: 'Works on LinkedIn, Twitter/X, Facebook, and Reddit. One extension, full coverage.', color: '#3b82f6' },
+            { icon: <LayoutDashboard size={32} color="#10b981" />, title: 'Full Dashboard', desc: 'Detailed analytics, historical data, platform breakdowns, and trends over time.', color: '#10b981' },
+            { icon: <ShieldCheck size={32} color="#ef4444" />, title: 'Privacy First', desc: 'Content is analyzed securely. We never store your browsing history or personal data.', color: '#ef4444' },
+            { icon: <Target size={32} color="#f97316" />, title: 'Precision Scoring', desc: '5-dimensional scoring: structure, vocabulary, evidence, manipulation, and originality.', color: '#f97316' },
           ].map((feature, i) => (
             <motion.div
               key={i}
@@ -341,10 +342,12 @@ export default function LandingPage() {
           <div style={{
             width: 28, height: 28, background: 'linear-gradient(135deg, #ef4444, #7f1d1d)',
             borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
-          }}>??</div>
+          }}>
+            <Shield size={16} color="#ffffff" />
+          </div>
           <span style={{ fontWeight: 700, color: '#94a3b8' }}>AI Slop Detector</span>
         </div>
-        <p>© 2024 AI Slop Detector. Built for truth on the internet.</p>
+        <p>© 2026 AI Slop Detector. Built for truth on the internet.</p>
       </footer>
 
       <style>{`
