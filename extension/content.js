@@ -96,8 +96,7 @@
 
   async function processElement(el, text) {
     scanning.add(el);
-    const pos = getComputedStyle(el).position;
-    if (pos === 'static') el.style.position = 'relative';
+    // Badge is now inline-flex, no need to change parent position
     const badge = makeBadge('scanning', '\u27F3', 'Scanning...');
     el.appendChild(badge);
     try {
@@ -280,7 +279,7 @@
     const s = document.createElement('style');
     s.id = 'slop-css-v2';
     s.textContent = `
-      .slop-badge{position:absolute!important;top:6px!important;right:6px!important;z-index:2147483640!important;display:inline-flex!important;align-items:center!important;gap:4px!important;padding:3px 9px!important;border-radius:20px!important;font-size:10px!important;font-weight:800!important;font-family:'Segoe UI',system-ui,sans-serif!important;cursor:pointer!important;user-select:none!important;letter-spacing:.5px!important;text-transform:uppercase!important;transition:transform .2s,box-shadow .2s!important;border:1.5px solid rgba(255,255,255,.2)!important;box-shadow:0 3px 14px rgba(0,0,0,.4)!important;line-height:1.5!important;pointer-events:auto!important;backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important}
+      .slop-badge{display:inline-flex!important;align-items:center!important;gap:4px!important;margin-left:8px!important;vertical-align:middle!important;padding:3px 9px!important;border-radius:20px!important;font-size:10px!important;font-weight:800!important;font-family:'Segoe UI',system-ui,sans-serif!important;cursor:pointer!important;user-select:none!important;letter-spacing:.5px!important;text-transform:uppercase!important;transition:transform .2s,box-shadow .2s!important;border:1.5px solid rgba(255,255,255,.2)!important;box-shadow:0 3px 14px rgba(0,0,0,.4)!important;line-height:1.5!important;pointer-events:auto!important;backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important}
       .slop-badge:hover{transform:scale(1.08)!important;box-shadow:0 5px 20px rgba(0,0,0,.55)!important}
       .slop-badge-scanning{background:rgba(99,102,241,.9)!important;color:#fff!important}
       .slop-badge-clean{background:rgba(16,185,129,.9)!important;color:#fff!important}
