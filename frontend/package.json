@@ -12,7 +12,8 @@
     "framer-motion": "^10.16.4",
     "react-hot-toast": "^2.4.1",
     "lucide-react": "^0.290.0",
-    "date-fns": "^2.30.0"
+    "date-fns": "^2.30.0",
+    "pg": "^8.11.3"
   },
   "scripts": {
     "start": "react-scripts start",

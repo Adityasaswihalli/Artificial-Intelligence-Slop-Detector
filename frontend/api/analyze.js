@@ -262,6 +262,45 @@ function analyzeText(text) {
   };
 }
 
+// ── PostgreSQL Logging ───────────────────────────────────────
+const { Pool } = require('pg');
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+async function logToDB(result, inputText, url, platform) {
+  try {
+    const client = await pool.connect();
+    try {
+      // Create table if not exists
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS analyses (
+          id SERIAL PRIMARY KEY,
+          content_hash TEXT,
+          platform TEXT,
+          url TEXT,
+          score INTEGER,
+          classification TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+
+      const crypto = require('crypto');
+      const hash = crypto.createHash('sha256').update(inputText).digest('hex');
+
+      await client.query(
+        'INSERT INTO analyses (content_hash, platform, url, score, classification) VALUES ($1, $2, $3, $4, $5)',
+        [hash, platform || 'other', url || '', result.scores.overall, result.classification]
+      );
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('DB Logging Error:', err);
+  }
+}
+
 // ── Vercel Serverless Handler ─────────────────────────────────
 module.exports = async (req, res) => {
   // CORS headers for extension access
@@ -278,7 +317,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { content, text } = req.body || {};
+    const { content, text, url, platform } = req.body || {};
     const inputText = content || text;
 
     if (!inputText || inputText.trim().length < 10) {
@@ -288,6 +327,9 @@ module.exports = async (req, res) => {
     const startTime = Date.now();
     const result = analyzeText(inputText.substring(0, 5000));
     result.processingTime = Date.now() - startTime;
+
+    // Log to PostgreSQL (Fire and forget in serverless to keep response fast)
+    logToDB(result, inputText, url, platform).catch(e => console.error(e));
 
     return res.status(200).json(result);
   } catch (error) {
