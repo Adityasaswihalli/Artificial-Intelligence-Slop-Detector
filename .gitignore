@@ -4,3 +4,7 @@ node_modules/
 dist/
 build/
 .gemini/
+model-training/
+output/
+__pycache__/
+*.pkl

@@ -1,4 +1,4 @@
-﻿const OpenAI = require('openai');
+const OpenAI = require('openai');
 const crypto = require('crypto');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -66,6 +66,41 @@ const calculateLocalScores = (text) => {
 };
 
 const analyzeWithAI = async (text) => {
+  // First attempt to use the local Claude-Level Python Ensemble Model
+  try {
+    // Dynamically import node-fetch if needed, or use global fetch (Node 18+)
+    const response = await fetch('http://localhost:8000/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      // Map the Python model response back to the format expected by the rest of the backend
+      return {
+        overallSlopScore: data.slop_score,
+        originality: data.scores.originality,
+        lackOfEvidence: data.scores.lackOfEvidence,
+        classification: data.classification,
+        flags: data.flags.map(f => ({
+          type: f.type,
+          severity: f.severity,
+          description: f.description,
+          examples: []
+        })),
+        summary: `Analyzed by Ensemble Model. AI Probability: ${(data.ai_probability * 100).toFixed(1)}%`,
+        details: data.explanation,
+        suggestions: ['Review flagged sections for authenticity.', 'Consider rephrasing overly uniform or predictable text.']
+      };
+    } else {
+      console.warn('Local Python model returned error status:', response.status);
+    }
+  } catch (error) {
+    console.warn('Local Python model not reachable, falling back to OpenAI...', error.message);
+  }
+
+  // Fallback to OpenAI if local Python model is down
   const prompt = `You are an expert at detecting AI-generated or low-quality "slop" content. Analyze the following text and provide a detailed assessment.
 
 Text to analyze:
@@ -123,7 +158,7 @@ const analyzeContent = async (text, userId) => {
     try {
       aiResult = await analyzeWithAI(text);
     } catch (aiError) {
-      console.error('OpenAI error, using local analysis:', aiError.message);
+      console.error('OpenAI and Local fallback error, using local analysis:', aiError.message);
       const localOverall = Math.round(
         (localScores.hollowVocabulary + localScores.repetitiveStructure + localScores.sentimentManipulation) / 3
       );

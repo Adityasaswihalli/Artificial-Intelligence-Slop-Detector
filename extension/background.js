@@ -3,16 +3,17 @@
 // Works on ALL pages including ChatGPT
 // ============================================================
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://artificial-intelligence-slop-detect.vercel.app/api';
+const DEBUG    = true;
 
-let authToken      = null;
-let extensionToken = null;
+let authToken      = 'public_mode'; // Dummy token for public mode
+let extensionToken = 'public_mode';
 let isEnabled      = true;
 let userSettings   = {
-  autoScan:      true,
-  showOverlay:   true,
+  autoScan: true,
+  showOverlay: true,
   minScoreAlert: 60,
-  scanAllSites:  true,
+  platforms: { linkedin: true, twitter: true, reddit: true, facebook: true }
 };
 
 // ── Init ─────────────────────────────────────────────────────
@@ -30,10 +31,14 @@ init();
 
 // ── Message Router ────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  handleMsg(msg, sender).then(sendResponse).catch(e => {
-    console.error('[BG] Error:', e);
-    sendResponse({ success: false, error: e.message });
-  });
+  handleMsg(msg, sender)
+    .then(res => {
+      try { sendResponse(res); } catch(err) { /* Sender port closed, ignore */ }
+    })
+    .catch(e => {
+      console.error('[BG] Error:', e);
+      try { sendResponse({ success: false, error: e.message }); } catch(err) {}
+    });
   return true; // async
 });
 

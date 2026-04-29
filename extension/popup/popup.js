@@ -95,28 +95,28 @@ function mainHTML() {
       </div>
 
       <button class="force-btn" id="bForce">
-        \uD83D\uDD0D FORCE SCAN CURRENT PAGE
+        FORCE SCAN CURRENT PAGE
       </button>
 
       <div class="acts">
         <button class="abtn" id="bDash">
-          <span class="aico">\uD83D\uDCCA</span><span>Open Dashboard</span><span class="ach">\u203A</span>
+          <span>Open Dashboard</span><span class="ach">\u203A</span>
         </button>
         <button class="abtn" id="bHist">
-          <span class="aico">\uD83D\uDCCB</span><span>Analysis History</span><span class="ach">\u203A</span>
+          <span>Analysis History</span><span class="ach">\u203A</span>
         </button>
       </div>
 
       <div class="plats">
         <div class="plats-title">Active Platforms</div>
         ${[
-          {id:'linkedin', n:'LinkedIn',    e:'\uD83D\uDCBC'},
-          {id:'twitter',  n:'Twitter / X', e:'\uD83D\uDC26'},
-          {id:'reddit',   n:'Reddit',      e:'\uD83E\uDD16'},
-          {id:'facebook', n:'Facebook',    e:'\uD83D\uDCD8'},
+          {id:'linkedin', n:'LinkedIn',    e:''},
+          {id:'twitter',  n:'Twitter / X', e:''},
+          {id:'reddit',   n:'Reddit',      e:''},
+          {id:'facebook', n:'Facebook',    e:''},
         ].map(pl => `
           <div class="prow">
-            <div class="pname">${pl.e} ${pl.n}</div>
+            <div class="pname">${pl.n}</div>
             <div class="mt ${p[pl.id]!==false?'on':''}" data-plat="${pl.id}">
               <div class="mk"></div>
             </div>
@@ -125,12 +125,12 @@ function mainHTML() {
       </div>
 
       <div class="scan-hint" id="scanHint">
-        ${S.isEnabled ? '\uD83D\uDD0D Scanning pages automatically' : '\u23F8 Detection paused'}
+        ${S.isEnabled ? 'Scanning pages automatically' : 'Detection paused'}
       </div>
 
       <div class="frow" style="margin-top:8px">
-        <button class="fbtn" id="bSet">\u2699 Settings</button>
-        <button class="fbtn d" id="bOut">\u21A9 Sign Out</button>
+        <button class="fbtn" id="bSet">Settings</button>
+        <button class="fbtn d" id="bOut">Sign Out</button>
       </div>
     </div>
   `;
@@ -145,22 +145,22 @@ function bind() {
 
   if (!S.isAuth || !S.user) {
     document.getElementById('bSign')?.addEventListener('click', () => {
-      chrome.tabs.create({ url:'http://localhost:3000' });
+      chrome.tabs.create({ url:'https://artificial-intelligence-slop-detect.vercel.app' });
       window.close();
     });
     document.getElementById('bScan')?.addEventListener('click', forceScan);
   } else {
     document.getElementById('bForce')?.addEventListener('click', forceScan);
     document.getElementById('bDash')?.addEventListener('click', () => {
-      chrome.tabs.create({ url:'http://localhost:3000/dashboard' });
+      chrome.tabs.create({ url:'https://artificial-intelligence-slop-detect.vercel.app/dashboard' });
       window.close();
     });
     document.getElementById('bHist')?.addEventListener('click', () => {
-      chrome.tabs.create({ url:'http://localhost:3000/history' });
+      chrome.tabs.create({ url:'https://artificial-intelligence-slop-detect.vercel.app/history' });
       window.close();
     });
     document.getElementById('bSet')?.addEventListener('click', () => {
-      chrome.tabs.create({ url:'http://localhost:3000/settings' });
+      chrome.tabs.create({ url:'https://artificial-intelligence-slop-detect.vercel.app/settings' });
       window.close();
     });
     document.getElementById('bOut')?.addEventListener('click', async () => {

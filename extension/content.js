@@ -42,13 +42,31 @@
     console.log('[SlopDetector] Active on', location.hostname);
   }
 
+  function isStreaming(el) {
+    return el.closest && el.closest('.result-streaming');
+  }
+
+  function checkScannedState(el) {
+    if (scanning.has(el)) return false;
+    if (isStreaming(el)) return false;
+    if (scanned.has(el)) {
+      // If badge was removed by React/SPA, allow rescanning
+      if (!el.querySelector('.slop-badge')) {
+        scanned.delete(el);
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
   function fullScan() {
     if (!isEnabled) return;
     let found = 0;
     TEXT_SELECTORS.forEach(sel => {
       try {
         document.querySelectorAll(sel).forEach(el => {
-          if (!scanned.has(el) && !scanning.has(el)) {
+          if (checkScannedState(el)) {
             const text = getCleanText(el);
             if (text && text.length >= MIN_LEN) { found++; processElement(el, text); }
           }
@@ -61,7 +79,7 @@
   function genericScan() {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
       acceptNode(node) {
-        if (scanned.has(node) || scanning.has(node)) return NodeFilter.FILTER_SKIP;
+        if (!checkScannedState(node)) return NodeFilter.FILTER_SKIP;
         const style = window.getComputedStyle(node);
         if (style.display === 'none' || style.visibility === 'hidden') return NodeFilter.FILTER_SKIP;
         const rect = node.getBoundingClientRect();
@@ -102,7 +120,11 @@
     try {
       const resp = await bg({ type: 'ANALYZE_TEXT', text: text.substring(0, 3000), url: location.href });
       badge.remove();
-      if (!resp.success) { scanning.delete(el); return; }
+      if (!resp.success) {
+        scanning.delete(el);
+        scanned.add(el);
+        return;
+      }
       const { result } = resp;
       const score = result.scores?.overall ?? 0;
       const cls   = result.classification ?? 'clean';
@@ -115,6 +137,7 @@
     } catch (err) {
       badge.remove();
       scanning.delete(el);
+      scanned.add(el);
     }
   }
 
