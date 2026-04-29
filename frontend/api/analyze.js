@@ -37,33 +37,47 @@ const SLOP_INDICATORS = {
 
 // ── AI Phrase Patterns (regex-based) ─────────────────────────
 const AI_PATTERNS = [
-  { re: /\bin conclusion\b/gi,                          w: 20 },
-  { re: /\bin summary\b/gi,                             w: 18 },
-  { re: /\bit is (important|crucial|worth|essential) to\b/gi, w: 14 },
-  { re: /\bfurthermore\b/gi,                            w: 10 },
-  { re: /\bmoreover\b/gi,                               w: 10 },
-  { re: /\badditionally\b/gi,                           w: 6  },
-  { re: /\bas an ai\b/gi,                               w: 50 },
-  { re: /\bi am an ai\b/gi,                             w: 50 },
-  { re: /\bai language model\b/gi,                      w: 50 },
-  { re: /\bi hope this helps\b/gi,                      w: 25 },
-  { re: /\bhappy to help\b/gi,                          w: 20 },
-  { re: /\bcertainly[,!]?\s/gi,                         w: 15 },
-  { re: /\bgreat question\b/gi,                         w: 20 },
-  { re: /\bdelve (deep|deeper|into)\b/gi,               w: 20 },
-  { re: /\bin today'?s? (digital|rapidly|world|landscape|era)\b/gi, w: 14 },
-  { re: /\bplays? a (crucial|vital|key|important|pivotal) role\b/gi, w: 14 },
-  { re: /\bthe (intersection|convergence|nexus) of\b/gi, w: 12 },
-  { re: /\bunlock(ing)? (the |full |true )?potential\b/gi, w: 14 },
-  { re: /\bas we navigate (the|these|this)\b/gi,        w: 12 },
-  { re: /\brapidly evolving\b/gi,                       w: 12 },
-  { re: /\bseamless(ly)? integrat/gi,                   w: 12 },
-  { re: /\btransformative (power|impact|potential|journey)\b/gi, w: 14 },
-  { re: /\bin a rapidly evolving\b/gi,                  w: 14 },
-  { re: /\bthrough strategic\b/gi,                      w: 12 },
-  { re: /\bby harnessing\b/gi,                          w: 14 },
-  { re: /\bempowering (stakeholders|teams|organizations|individuals)\b/gi, w: 12 },
-  { re: /\b(thrilled|excited|humbled|blessed|proud) to\b/gi, w: 12 },
+  { re: /\bin conclusion\b/gi,                          w: 25 },
+  { re: /\bin summary\b/gi,                             w: 20 },
+  { re: /\bit is (important|crucial|worth|essential) to (note|remember|consider|recognize)\b/gi, w: 30 },
+  { re: /\bfurthermore\b/gi,                            w: 15 },
+  { re: /\bmoreover\b/gi,                               w: 15 },
+  { re: /\badditionally\b/gi,                           w: 12 },
+  { re: /\bultimately\b/gi,                             w: 15 },
+  { re: /\bto summarize\b/gi,                           w: 20 },
+  { re: /\boverall,\b/gi,                               w: 15 },
+  { re: /\bas an ai\b/gi,                               w: 100 },
+  { re: /\bi am an ai\b/gi,                             w: 100 },
+  { re: /\bai language model\b/gi,                      w: 100 },
+  { re: /\bi hope this helps\b/gi,                      w: 40 },
+  { re: /\bhappy to help\b/gi,                          w: 30 },
+  { re: /\bgreat question\b/gi,                         w: 30 },
+  { re: /\bdelve (deep|deeper|into)\b/gi,               w: 35 },
+  { re: /\bin today'?s? (digital|rapidly|world|landscape|era|society)\b/gi, w: 25 },
+  { re: /\bplays? a (crucial|vital|key|important|pivotal) role\b/gi, w: 25 },
+  { re: /\bthe (intersection|convergence|nexus) of\b/gi, w: 20 },
+  { re: /\bunlock(ing)? (the |full |true )?potential\b/gi, w: 25 },
+  { re: /\bas we navigate (the|these|this)\b/gi,        w: 20 },
+  { re: /\brapidly evolving\b/gi,                       w: 20 },
+  { re: /\bseamless(ly)? integrat/gi,                   w: 15 },
+  { re: /\btransformative (power|impact|potential|journey)\b/gi, w: 20 },
+  { re: /\bthrough strategic\b/gi,                      w: 15 },
+  { re: /\bby harnessing\b/gi,                          w: 20 },
+  { re: /\bempowering (stakeholders|teams|organizations|individuals)\b/gi, w: 15 },
+  { re: /\bhere are (a few|some)\b/gi,                  w: 15 },
+  { re: /\blet'?s dive in\b/gi,                          w: 20 },
+  { re: /\btestament to\b/gi,                           w: 25 },
+  { re: /\bnot only .* but also\b/gi,                   w: 10 },
+  { re: /\bwhether you are .* or .*\b/gi,               w: 15 },
+  { re: /\bby understanding .*, we can\b/gi,            w: 20 },
+  { re: /\bin a world where\b/gi,                       w: 25 },
+  { re: /\bthe ever-evolving\b/gi,                      w: 25 },
+  { re: /\btapestry of\b/gi,                            w: 50 },
+  { re: /\bsymphony of\b/gi,                            w: 50 },
+  { re: /\bbeacon of\b/gi,                              w: 40 },
+  { re: /\bmultifaceted\b/gi,                           w: 25 },
+  { re: /\bnuanced\b/gi,                                w: 20 },
+  { re: /\bparadigm\b/gi,                               w: 25 },
 ];
 
 function analyzeText(text) {
@@ -86,7 +100,7 @@ function analyzeText(text) {
     }
   });
   const buzzDensity = buzzHits / wordCount;
-  const buzzScore = Math.min(100, Math.round(buzzDensity * 800 + buzzUnique * 6));
+  const buzzScore = Math.min(100, Math.round(buzzDensity * 1800 + buzzUnique * 12));
 
   // ═══════════════════════════════════════════════════════════
   // 2. AI PHRASE PATTERNS (0-100)
@@ -97,10 +111,10 @@ function analyzeText(text) {
     const matches = t.match(re);
     if (matches) {
       aiPatternHits++;
-      aiWeight += w * Math.min(matches.length, 5);
+      aiWeight += w * Math.min(matches.length, 3);
     }
   });
-  const aiScore = Math.min(100, Math.round(aiWeight * 0.8));
+  const aiScore = Math.min(100, Math.round(aiWeight * 1.5));
 
   // ═══════════════════════════════════════════════════════════
   // 3. SENTENCE UNIFORMITY (0-100)
@@ -112,7 +126,8 @@ function analyzeText(text) {
     sentStd = Math.sqrt(sentLengths.reduce((sum, l) => sum + (l - avgSentLen) ** 2, 0) / sentLengths.length);
   }
   const uniformity = Math.max(0, 1 - (sentStd / Math.max(avgSentLen, 1)));
-  const uniformScore = Math.min(100, Math.round(uniformity * 100));
+  // AI is extremely uniform. Human is variable.
+  const uniformScore = Math.min(100, Math.round(Math.pow(uniformity, 2) * 120));
 
   // ═══════════════════════════════════════════════════════════
   // 4. VOCABULARY DIVERSITY — Type-Token Ratio (0-100)
@@ -120,8 +135,10 @@ function analyzeText(text) {
   const lowerWords = words.map(w => w.toLowerCase().replace(/[^a-z]/g, '')).filter(Boolean);
   const uniqueWords = new Set(lowerWords);
   const ttr = uniqueWords.size / Math.max(lowerWords.length, 1);
-  // Low TTR = repetitive = more AI-like.  Human TTR is typically > 0.6
-  const ttrPenalty = Math.min(100, Math.round(Math.max(0, (0.7 - ttr)) * 250));
+  let expectedTtr = 0.75;
+  if (wordCount > 200) expectedTtr = 0.65;
+  if (wordCount > 500) expectedTtr = 0.55;
+  const ttrPenalty = Math.min(100, Math.round(Math.max(0, (expectedTtr - ttr)) * 400));
 
   // ═══════════════════════════════════════════════════════════
   // 5. LACK OF SPECIFICITY (0-100)
@@ -131,10 +148,10 @@ function analyzeText(text) {
   const hasConcreteNouns = /(company|team|project|client|research|data|experiment|result|customer|product|revenue|user)/i.test(t);
   const hasPersonalVoice = /(I think|I believe|in my experience|honestly|frankly|personally)/i.test(t);
   let specPenalty = 0;
-  if (!hasNumbers) specPenalty += 15;
-  if (!hasExamples) specPenalty += 15;
-  if (!hasConcreteNouns) specPenalty += 12;
-  if (!hasPersonalVoice) specPenalty += 8;
+  if (!hasNumbers) specPenalty += 25;
+  if (!hasExamples) specPenalty += 20;
+  if (!hasConcreteNouns) specPenalty += 15;
+  if (!hasPersonalVoice) specPenalty += 15;
   specPenalty = Math.min(100, specPenalty);
 
   // ═══════════════════════════════════════════════════════════
@@ -142,7 +159,7 @@ function analyzeText(text) {
   // ═══════════════════════════════════════════════════════════
   let manipScore = 0;
   SLOP_INDICATORS.manipulativePhrases.forEach(phrase => {
-    if (lower.includes(phrase.toLowerCase())) manipScore += 20;
+    if (lower.includes(phrase.toLowerCase())) manipScore += 25;
   });
   manipScore = Math.min(100, manipScore);
 
@@ -154,19 +171,27 @@ function analyzeText(text) {
   const numberedLines = lines.filter(l => /^\s*\d+[.\)]\s/.test(l)).length;
   const emojiCount    = (t.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length;
   const hashtagCount  = (t.match(/#\w+/g) || []).length;
-  const structScore   = Math.min(100, (emojiCount * 5) + (bulletLines * 3) + (numberedLines * 4) + (hashtagCount * 2));
+  const structScore   = Math.min(100, (emojiCount * 4) + (bulletLines * 4) + (numberedLines * 5) + (hashtagCount * 3));
 
   // ═══════════════════════════════════════════════════════════
-  // FINAL ENSEMBLE SCORE
+  // FINAL ENSEMBLE SCORE (Non-linear aggregation)
   // ═══════════════════════════════════════════════════════════
-  const overall = Math.min(100, Math.round(
+  // A weighted average mutes strong signals. If AI Score is 90, the text IS AI, regardless of other metrics.
+  const weightedBase = Math.round(
     buzzScore      * 0.25 +
-    aiScore        * 0.25 +
+    aiScore        * 0.30 +
     uniformScore   * 0.10 +
     ttrPenalty     * 0.10 +
     specPenalty    * 0.15 +
-    manipScore     * 0.10 +
+    manipScore     * 0.05 +
     structScore    * 0.05
+  );
+
+  const overall = Math.min(100, Math.max(
+    weightedBase,
+    Math.round(aiScore * 0.95),      // High AI patterns alone strongly indicate AI
+    Math.round(buzzScore * 0.90),    // Extremely hollow text is slop
+    Math.round(manipScore * 0.85)    // Highly manipulative text is slop
   ));
 
   const originality = Math.max(0, 100 - overall);
